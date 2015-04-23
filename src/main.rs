@@ -22,11 +22,6 @@ fn make_button(size: &Vector2f) -> RectangleShape<'static> {
 	rect
 }
 
-fn light_step(step: usize, pads: &Vec<RectangleShape>) {
-	//let pad = &pads[step];
-	//pad.set_fill_color(&Color::new_rgb(134,179,44));
-}
-
 fn main() {
 	let mut window = RenderWindow::new(VideoMode::new_init(500, 400, 32),
 		"Rust Audio",
@@ -69,18 +64,18 @@ fn main() {
 	let mut step = 0;
 
 	let kick_buffer = match SoundBuffer::new("Samples/kick-808.wav") {
-			Some(buffer)    => Rc::new(RefCell::new(buffer)),
-			None            => panic!("Error, cannot load sound buffer!")
-		};
+		Some(buffer)    => Rc::new(RefCell::new(buffer)),
+		None            => panic!("Error, cannot load sound buffer!")
+	};
 
 	let mut kick: rc::Sound = match rc::Sound::new_with_buffer(kick_buffer.clone()) {
-			Some(sound)     => sound,
-			None            => panic!("Error cannot create Sound")
-		};
+		Some(sound)     => sound,
+		None            => panic!("Error cannot create Sound")
+	};
 
 	kick.set_volume(90.);
 
-	let hh_buffer = match SoundBuffer::new("Samples/hihat-electro.wav") {
+	let hh_buffer = match SoundBuffer::new("Samples/hihat-plain.wav") {
 		Some(buffer)    => Rc::new(RefCell::new(buffer)),
 		None            => panic!("Error, cannot load sound buffer!")
 	};
@@ -91,12 +86,17 @@ fn main() {
 	};
 
 	let mut hh_hits:[bool;16] = [false;16];
+	hh_hits[0] = true;
 	hh_hits[2] = true;
+	hh_hits[4] = true;
 	hh_hits[6] = true;
+	hh_hits[8] = true;
 	hh_hits[10] = true;
+	hh_hits[11] = true;
+	hh_hits[13] = true;
 	hh_hits[14] = true;
 
-	hh.set_volume(70.);
+	hh.set_volume(90.);
 
 	let clap_buffer = match SoundBuffer::new("Samples/clap-808.wav") {
 		Some(buffer)    => Rc::new(RefCell::new(buffer)),
@@ -116,6 +116,41 @@ fn main() {
 	clap.set_volume(70.);
 
 	while window.is_open() {
+
+		let mut pads = vec![make_button(&size);16];
+
+		let mut row = 0;
+		let pad_offset = 120;
+		for x in 0..16 {
+			let col = x%4;
+			let left_offset = ((width * col) + ((button_space * (col + 1)) + pad_offset)) as f32;
+			let top_offset = ((height * row) + (button_space * (row + 1))) as f32;
+			pads[x].set_position(&Vector2f::new(left_offset, top_offset));
+
+			match instrument {
+				Some("kick") => {
+					if kick_hits[x] {
+						pads[x].set_fill_color(&Color::new_rgb(181,89,44));
+					}
+				},
+				Some("hh") => {
+					if hh_hits[x] {
+						pads[x].set_fill_color(&Color::new_rgb(181,89,44));
+					}
+				},
+				Some("clap") => {
+					if clap_hits[x] {
+						pads[x].set_fill_color(&Color::new_rgb(181,89,44));
+					}
+				},
+				Some(_) => {/* do nothing */}
+				None => {/* do nothing */}
+			}
+			if is_playing && x == step {
+				pads[x].set_fill_color(&Color::new_rgb(190,223,124));
+			}
+			if col == 3 { row += 1; }
+		}
 
 		for event in window.events() {
 			match event {
@@ -141,46 +176,13 @@ fn main() {
 						if on_button(&clap_btn.rect, x, y) {
 							instrument = Some("clap");
 						}
+						for x in 0..16 {
+							let pad = &pads[x];
+						}
 						break;
 					},
 					_ => { /* do nothing */}
 				}
-		}
-
-		let mut pads = vec![make_button(&size);16];
-
-		let mut row = 0;
-		let pad_offset = 120;
-		for x in 0..16 {
-			let col = x%4;
-			let left_offset = ((width * col) + ((button_space * (col + 1)) + pad_offset)) as f32;
-			let top_offset = ((height * row) + (button_space * (row + 1))) as f32;
-			pads[x].set_position(&Vector2f::new(left_offset, top_offset));
-
-
-			match instrument {
-				Some("kick") => {
-					if kick_hits[x] {
-						pads[x].set_fill_color(&Color::new_rgb(181,158,44));
-					}
-				},
-				Some("hh") => {
-					if hh_hits[x] {
-						pads[x].set_fill_color(&Color::new_rgb(181,158,44));
-					}
-				},
-				Some("clap") => {
-					if clap_hits[x] {
-						pads[x].set_fill_color(&Color::new_rgb(181,158,44));
-					}
-				},
-				Some(_) => {/* do nothing */}
-				None => {/* do nothing */}
-			}
-			if is_playing && x == step {
-				pads[x].set_fill_color(&Color::new_rgb(190,223,124));
-			}
-			if col == 3 { row += 1; }
 		}
 
 		if is_playing {
@@ -203,8 +205,6 @@ fn main() {
 				_ => { /* do nothing */ }
 			}
 		}
-
-
 
 		// Clear the window
 		window.clear(&Color::new_rgb(29, 115, 115));
