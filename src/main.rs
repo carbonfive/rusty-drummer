@@ -10,8 +10,8 @@ use sfml::graphics::{RenderWindow, RenderTarget, RectangleShape, Color};
 
 mod button;
 
-fn on_button(button: &button::Button, x: i32, y: i32) -> bool {
-	button.rect.get_global_bounds().contains(x as f32, y as f32)
+fn on_button(rect: &RectangleShape, x: i32, y: i32) -> bool {
+	rect.get_global_bounds().contains(x as f32, y as f32)
 }
 
 fn make_button(size: &Vector2f) -> RectangleShape<'static> {
@@ -22,8 +22,13 @@ fn make_button(size: &Vector2f) -> RectangleShape<'static> {
 	rect
 }
 
+fn light_step(step: usize, pads: &Vec<RectangleShape>) {
+	//let pad = &pads[step];
+	//pad.set_fill_color(&Color::new_rgb(134,179,44));
+}
+
 fn main() {
-	let mut window = RenderWindow::new(VideoMode::new_init(800, 400, 32),
+	let mut window = RenderWindow::new(VideoMode::new_init(500, 400, 32),
 		"Rust Audio",
 		Close,
 		&ContextSettings::default())
@@ -36,23 +41,28 @@ fn main() {
 	let button_space = 10;
 
 	let mut one = button::Button::new("one", size, true);
-	one.rect.set_position(&Vector2f::new(button_space as f32, row_offset));
+	one.rect.set_position(&Vector2f::new(10., 10.));
+
+	let mut kick_btn = button::Button::new("kick", size, true);
+	kick_btn.rect.set_position(&Vector2f::new(10., 100.));
+
+	let mut hh_btn = button::Button::new("hh", size, true);
+	hh_btn.rect.set_position(&Vector2f::new(10., 190.));
+
+	let mut clap_btn = button::Button::new("clap", size, true);
+	clap_btn.rect.set_position(&Vector2f::new(10., 280.));
 
 	let mut tempo = 120.;
 	let mut beat = ((60./tempo) * 1000.) as i32;
 	let mut div = (beat/4);
+
+	let mut instrument = Some("kick");
 
 	let mut kick_hits:[bool;16] = [false;16];
 	kick_hits[0] = true;
 	kick_hits[4] = true;
 	kick_hits[8] = true;
 	kick_hits[12] = true;
-
-	let mut hh_hits:[bool;16] = [false;16];
-	hh_hits[2] = true;
-	hh_hits[6] = true;
-	hh_hits[10] = true;
-	hh_hits[14] = true;
 
 	let mut is_playing = false;
 	let mut clock = Clock::new();
@@ -80,7 +90,30 @@ fn main() {
 		None            => panic!("Error cannot create Sound")
 	};
 
-	hh.set_volume(50.);
+	let mut hh_hits:[bool;16] = [false;16];
+	hh_hits[2] = true;
+	hh_hits[6] = true;
+	hh_hits[10] = true;
+	hh_hits[14] = true;
+
+	hh.set_volume(70.);
+
+	let clap_buffer = match SoundBuffer::new("Samples/clap-808.wav") {
+		Some(buffer)    => Rc::new(RefCell::new(buffer)),
+		None            => panic!("Error, cannot load sound buffer!")
+	};
+
+	let mut clap: rc::Sound = match rc::Sound::new_with_buffer(clap_buffer.clone()) {
+		Some(sound)     => sound,
+		None            => panic!("Error cannot create Sound")
+	};
+
+	let mut clap_hits:[bool;16] = [false;16];
+	clap_hits[4] = true;
+	clap_hits[12] = true;
+	clap_hits[15] = true;
+
+	clap.set_volume(70.);
 
 	while window.is_open() {
 
@@ -88,7 +121,7 @@ fn main() {
 			match event {
 					event::Closed => window.close(),
 					MouseButtonPressed{button, x, y} => {
-						if on_button(&one, x, y) {
+						if on_button(&one.rect, x, y) {
 							if is_playing {
 								println!("Stoping");
 							}
@@ -99,10 +132,55 @@ fn main() {
 							}
 							is_playing = !is_playing;
 						}
+						if on_button(&kick_btn.rect, x, y) {
+							instrument = Some("kick");
+						}
+						if on_button(&hh_btn.rect, x, y) {
+							instrument = Some("hh");
+						}
+						if on_button(&clap_btn.rect, x, y) {
+							instrument = Some("clap");
+						}
 						break;
 					},
 					_ => { /* do nothing */}
 				}
+		}
+
+		let mut pads = vec![make_button(&size);16];
+
+		let mut row = 0;
+		let pad_offset = 120;
+		for x in 0..16 {
+			let col = x%4;
+			let left_offset = ((width * col) + ((button_space * (col + 1)) + pad_offset)) as f32;
+			let top_offset = ((height * row) + (button_space * (row + 1))) as f32;
+			pads[x].set_position(&Vector2f::new(left_offset, top_offset));
+
+
+			match instrument {
+				Some("kick") => {
+					if kick_hits[x] {
+						pads[x].set_fill_color(&Color::new_rgb(181,158,44));
+					}
+				},
+				Some("hh") => {
+					if hh_hits[x] {
+						pads[x].set_fill_color(&Color::new_rgb(181,158,44));
+					}
+				},
+				Some("clap") => {
+					if clap_hits[x] {
+						pads[x].set_fill_color(&Color::new_rgb(181,158,44));
+					}
+				},
+				Some(_) => {/* do nothing */}
+				None => {/* do nothing */}
+			}
+			if is_playing && x == step {
+				pads[x].set_fill_color(&Color::new_rgb(190,223,124));
+			}
+			if col == 3 { row += 1; }
 		}
 
 		if is_playing {
@@ -110,25 +188,36 @@ fn main() {
 			let remainder = t%div;
 			match remainder {
 				0 => {
-					if kick_hits[step] == true {
+					if kick_hits[step] {
 						kick.play();
 					}
-					if hh_hits[step] == true {
+					if hh_hits[step] {
 						hh.play();
 					}
-					println!("{}", step);
+					if clap_hits[step] {
+						clap.play();
+					}
 					if step < 15 { step += 1; } else { step = 0 };
-					sleep(Time::with_milliseconds(2));
+					sleep(Time::with_milliseconds(100));
 				},
 				_ => { /* do nothing */ }
 			}
 		}
+
+
 
 		// Clear the window
 		window.clear(&Color::new_rgb(29, 115, 115));
 
 		// Draw the shape
 		window.draw(&one.rect);
+		window.draw(&kick_btn.rect);
+		window.draw(&hh_btn.rect);
+		window.draw(&clap_btn.rect);
+
+		for x in 0..16 {
+			window.draw(&pads[x]);
+		}
 
 		// Display things on screen
 		window.display()
