@@ -1,0 +1,7 @@
+[package]
+name = "rust-audio"
+version = "0.1.0"
+authors = ["James Brennan <james@carbonfive.com>"]
+
+[dependencies]
+sfml = "*"
