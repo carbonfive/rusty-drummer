@@ -165,37 +165,32 @@ fn main() {
 		// Initialize pad shapes for grid
 		let mut pads = vec![make_button(&size);16];
 
-		// Itterate over the pads
-		for x in 0..16 {
+		for (i, pad) in pads.iter_mut().enumerate() {
 
-			// Calculate pad position
-			let col = x%4;
-			let left_offset = ((width * col) + ((button_space * (col + 1)) + pad_offset)) as f32;
-			let top_offset = ((height * row) + (button_space * (row + 1))) as f32;
+			let col = (i as i32) % (4 as i32);
+			let position = calculate_position(col, row, width, height, button_space, pad_offset);
 
-			// Set pad position
-			pads[x].set_position(&Vector2f::new(left_offset, top_offset));
+			pad.set_position(&position);
 
-			// Colorize the pad if it is 'on' for the currently selected instrument
-			match instrument {
-				Some("kick") => {
-					if kick_hits[x] { pads[x].set_fill_color(&Color::new_rgb(181,89,44)); }
-				},
-				Some("hh") => {
-					if hh_hits[x] { pads[x].set_fill_color(&Color::new_rgb(181,89,44)); }
-				},
-				Some("clap") => {
-					if clap_hits[x] { pads[x].set_fill_color(&Color::new_rgb(181,89,44)); }
-				},
-				Some(_) => {/* do nothing */}
-				None => {/* do nothing */}
+			let on_color   = Color::new_rgb(181,89,44);
+			let step_color = Color::new_rgb(190,223,124);
+
+			if is_playing && i == step { pad.set_fill_color(&step_color); }
+			else {
+				match instrument {
+					Some("kick") => {
+						if kick_hits[i] { pad.set_fill_color(&on_color); }
+					},
+					Some("hh") => {
+						if hh_hits[i] 	{ pad.set_fill_color(&on_color); }
+					},
+					Some("clap") => {
+						if clap_hits[i] { pad.set_fill_color(&on_color); }
+					},
+					Some(_) => { }
+					None => { }
+				}
 			}
-
-			// Colorize the pad if it represents the current step - overriding instrument coloring, if necessary
-			if is_playing && x == step {
-				pads[x].set_fill_color(&Color::new_rgb(190,223,124));
-			}
-
 			if col == 3 { row += 1; }
 		}
 
@@ -209,11 +204,8 @@ fn main() {
 		window.draw(&clap_btn.rect);
 
 		// Draw the grid
-		for x in 0..16 {
-			window.draw(&pads[x]);
-		}
+		for pad in pads { window.draw(&pad); }
 
-		// Display things on screen
 		window.display();
 
 		// Increment the step counter for the next loop
@@ -233,3 +225,16 @@ fn make_button(size: &Vector2f) -> RectangleShape<'static> {
 	rect
 }
 
+fn calculate_left_offset(width: i32, col: i32, button_space: i32, pad_offset: i32) -> f32 {
+	((width * col) + ((button_space * (col + 1)) + pad_offset)) as f32
+}
+
+fn calculate_top_offset(height: i32, row: i32, button_space: i32) -> f32{
+	((height * row) + (button_space * (row + 1))) as f32
+}
+
+fn calculate_position(col: i32, row: i32, col_width: i32, row_height: i32, gutter: i32, left_offset: i32) -> Vector2f {
+	let left = calculate_left_offset(col_width, col, gutter, left_offset);
+	let top  = calculate_top_offset(row_height, row, gutter);
+	Vector2f::new(left, top)
+}
