@@ -10,18 +10,6 @@ use sfml::graphics::{RenderWindow, RenderTarget, RectangleShape, Color};
 
 mod button;
 
-fn on_button(rect: &RectangleShape, x: i32, y: i32) -> bool {
-	rect.get_global_bounds().contains(x as f32, y as f32)
-}
-
-fn make_button(size: &Vector2f) -> RectangleShape<'static> {
-  	let mut rect = RectangleShape::new_init(size).expect("Error, cannot create button.");
-	rect.set_outline_thickness(1.);
-	rect.set_fill_color(&Color::new_rgb(134,179,44));
-	rect.set_outline_color(&Color::new_rgb(0,70,70));
-	rect
-}
-
 fn main() {
 	let mut window = RenderWindow::new(VideoMode::new_init(500, 400, 32),
 		"Rust Audio",
@@ -29,26 +17,27 @@ fn main() {
 		&ContextSettings::default())
 	.expect("Cannot create a new Render Window.");
 
+	// Initialize size values for pad UI elements
 	let width = 80;
 	let height = 80;
 	let size = Vector2f::new(width as f32, height as f32);
 	let button_space = 10;
 
+	// Start/Stop button
 	let mut one = button::Button::new("one", size, true);
 	one.rect.set_position(&Vector2f::new(10., 10.));
 
+	// Select "kick" instrument button
 	let mut kick_btn = button::Button::new("kick", size, true);
 	kick_btn.rect.set_position(&Vector2f::new(10., 100.));
 
+	// Select "hh" instrument button
 	let mut hh_btn = button::Button::new("hh", size, true);
 	hh_btn.rect.set_position(&Vector2f::new(10., 190.));
 
+	// Select "clap" instrument button
 	let mut clap_btn = button::Button::new("clap", size, true);
 	clap_btn.rect.set_position(&Vector2f::new(10., 280.));
-
-	let tempo = 120.;
-	let beat = ((60./tempo) * 1000.) as i32;
-	let div = beat/4;
 
 	let mut instrument = Some("kick");
 
@@ -114,101 +103,133 @@ fn main() {
 
 	clap.set_volume(70.);
 
+	// Initialize time signature math vars
+	let tempo = 120.;
+	let beat = ((60./tempo) * 1000.) as i32;
+	let div = beat/4;
+
 	while window.is_open() {
 
-		let mut pads = vec![make_button(&size);16];
-
-		let mut row = 0;
-		let pad_offset = 120;
-		for x in 0..16 {
-			let col = x%4;
-			let left_offset = ((width * col) + ((button_space * (col + 1)) + pad_offset)) as f32;
-			let top_offset = ((height * row) + (button_space * (row + 1))) as f32;
-			pads[x].set_position(&Vector2f::new(left_offset, top_offset));
-
-			match instrument {
-				Some("kick") => {
-					if kick_hits[x] {
-						pads[x].set_fill_color(&Color::new_rgb(181,89,44));
-					}
-				},
-				Some("hh") => {
-					if hh_hits[x] {
-						pads[x].set_fill_color(&Color::new_rgb(181,89,44));
-					}
-				},
-				Some("clap") => {
-					if clap_hits[x] {
-						pads[x].set_fill_color(&Color::new_rgb(181,89,44));
-					}
-				},
-				Some(_) => {/* do nothing */}
-				None => {/* do nothing */}
-			}
-			if is_playing && x == step {
-				pads[x].set_fill_color(&Color::new_rgb(190,223,124));
-			}
-			if col == 3 { row += 1; }
-		}
-
+		// Set up responses to UI events
 		for event in window.events() {
 			match event {
-					event::Closed => window.close(),
-					MouseButtonPressed{button, x, y} => {
-						if on_button(&one.rect, x, y) {
-							if is_playing {
-								println!("Stoping");
-							}
-							else {
-								clock.restart();
-								step = 0;
-								println!("Starting");
-							}
-							is_playing = !is_playing;
+				event::Closed => window.close(),
+				MouseButtonPressed{button, x, y} => {
+					if on_button(&one.rect, x, y) {
+						if is_playing {
+							println!("Stoping");
 						}
-						if on_button(&kick_btn.rect, x, y) {
-							instrument = Some("kick");
+						else {
+							clock.restart();
+							step = 0;
+							println!("Starting");
 						}
-						if on_button(&hh_btn.rect, x, y) {
-							instrument = Some("hh");
-						}
-						if on_button(&clap_btn.rect, x, y) {
-							instrument = Some("clap");
-						}
-						break;
-					},
-					_ => { /* do nothing */}
-				}
+						is_playing = !is_playing;
+					}
+					if on_button(&kick_btn.rect, x, y) {
+						instrument = Some("kick");
+					}
+					if on_button(&hh_btn.rect, x, y) {
+						instrument = Some("hh");
+					}
+					if on_button(&clap_btn.rect, x, y) {
+						instrument = Some("clap");
+					}
+					break;
+				},
+				_ => { /* do nothing */}
+			}
 		}
 
 		if is_playing {
 			let mut remainder = 0;
+
+			// Wait until it's time to play a sound
 			loop {
 				let tick = clock.get_elapsed_time().as_milliseconds();
 				loop { if tick != clock.get_elapsed_time().as_milliseconds() {break;} }
 				remainder = tick % div;
 				if remainder == 0 {break;}
 			}
+
+			// We've waited long enough. Play some sounds.
 			if kick_hits[step] {kick.play();}
 			if hh_hits[step] {hh.play();}
 			if clap_hits[step] {clap.play();}
-			if step < 15 { step += 1;} else { step = 0};
+		}
+
+		// Initialize vars for grid-drawing loop
+		let mut row = 0;
+		let pad_offset = 120;
+
+		// Initialize pad shapes for grid
+		let mut pads = vec![make_button(&size);16];
+
+		// Itterate over the pads
+		for x in 0..16 {
+
+			// Calculate pad position
+			let col = x%4;
+			let left_offset = ((width * col) + ((button_space * (col + 1)) + pad_offset)) as f32;
+			let top_offset = ((height * row) + (button_space * (row + 1))) as f32;
+
+			// Set pad position
+			pads[x].set_position(&Vector2f::new(left_offset, top_offset));
+
+			// Colorize the pad if it is 'on' for the currently selected instrument
+			match instrument {
+				Some("kick") => {
+					if kick_hits[x] { pads[x].set_fill_color(&Color::new_rgb(181,89,44)); }
+				},
+				Some("hh") => {
+					if hh_hits[x] { pads[x].set_fill_color(&Color::new_rgb(181,89,44)); }
+				},
+				Some("clap") => {
+					if clap_hits[x] { pads[x].set_fill_color(&Color::new_rgb(181,89,44)); }
+				},
+				Some(_) => {/* do nothing */}
+				None => {/* do nothing */}
+			}
+
+			// Colorize the pad if it represents the current step - overriding instrument coloring, if necessary
+			if is_playing && x == step {
+				pads[x].set_fill_color(&Color::new_rgb(190,223,124));
+			}
+
+			if col == 3 { row += 1; }
 		}
 
 		// Clear the window
 		window.clear(&Color::new_rgb(29, 115, 115));
 
-		// Draw the shape
+		// Draw the left buttons
 		window.draw(&one.rect);
 		window.draw(&kick_btn.rect);
 		window.draw(&hh_btn.rect);
 		window.draw(&clap_btn.rect);
 
+		// Draw the grid
 		for x in 0..16 {
 			window.draw(&pads[x]);
 		}
 
 		// Display things on screen
-		window.display()
+		window.display();
+
+		// Increment the step counter for the next loop
+		if step < 15 {step += 1} else {step = 0};
 	}
 }
+
+fn on_button(rect: &RectangleShape, x: i32, y: i32) -> bool {
+	rect.get_global_bounds().contains(x as f32, y as f32)
+}
+
+fn make_button(size: &Vector2f) -> RectangleShape<'static> {
+	let mut rect = RectangleShape::new_init(size).expect("Error, cannot create button.");
+	rect.set_outline_thickness(1.);
+	rect.set_fill_color(&Color::new_rgb(134,179,44));
+	rect.set_outline_color(&Color::new_rgb(0,70,70));
+	rect
+}
+
