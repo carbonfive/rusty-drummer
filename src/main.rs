@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use sfml::audio::{SoundBuffer, rc};
 use sfml::window::{ContextSettings, VideoMode, event, Close};
 use sfml::window::event::MouseButtonPressed;
-use sfml::system::{Vector2f, Clock, Time, sleep};
+use sfml::system::{Vector2f, Clock};
 use sfml::graphics::{RenderWindow, RenderTarget, RectangleShape, Color};
 
 mod button;
@@ -32,7 +32,6 @@ fn main() {
 	let width = 80;
 	let height = 80;
 	let size = Vector2f::new(width as f32, height as f32);
-	let row_offset = 310.;
 	let button_space = 10;
 
 	let mut one = button::Button::new("one", size, true);
@@ -47,9 +46,9 @@ fn main() {
 	let mut clap_btn = button::Button::new("clap", size, true);
 	clap_btn.rect.set_position(&Vector2f::new(10., 280.));
 
-	let mut tempo = 120.;
-	let mut beat = ((60./tempo) * 1000.) as i32;
-	let mut div = (beat/4);
+	let tempo = 120.;
+	let beat = ((60./tempo) * 1000.) as i32;
+	let div = beat/4;
 
 	let mut instrument = Some("kick");
 
@@ -176,9 +175,6 @@ fn main() {
 						if on_button(&clap_btn.rect, x, y) {
 							instrument = Some("clap");
 						}
-						for x in 0..16 {
-							let pad = &pads[x];
-						}
 						break;
 					},
 					_ => { /* do nothing */}
@@ -186,24 +182,17 @@ fn main() {
 		}
 
 		if is_playing {
-			let t = clock.get_elapsed_time().as_milliseconds();
-			let remainder = t%div;
-			match remainder {
-				0 => {
-					if kick_hits[step] {
-						kick.play();
-					}
-					if hh_hits[step] {
-						hh.play();
-					}
-					if clap_hits[step] {
-						clap.play();
-					}
-					if step < 15 { step += 1; } else { step = 0 };
-					sleep(Time::with_milliseconds(100));
-				},
-				_ => { /* do nothing */ }
+			let mut remainder = 0;
+			loop {
+				let tick = clock.get_elapsed_time().as_milliseconds();
+				loop { if tick != clock.get_elapsed_time().as_milliseconds() {break;} }
+				remainder = tick % div;
+				if remainder == 0 {break;}
 			}
+			if kick_hits[step] {kick.play();}
+			if hh_hits[step] {hh.play();}
+			if clap_hits[step] {clap.play();}
+			if step < 15 { step += 1;} else { step = 0};
 		}
 
 		// Clear the window
