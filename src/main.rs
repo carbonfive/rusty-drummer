@@ -24,19 +24,19 @@ fn main() {
 	let button_space = 10;
 
 	// Start/Stop button
-	let mut one = button::Button::new("one", size, true);
+	let mut one = button::Button::new("one", size);
 	one.rect.set_position(&Vector2f::new(10., 10.));
 
 	// Select "kick" instrument button
-	let mut kick_btn = button::Button::new("kick", size, true);
+	let mut kick_btn = button::Button::new("kick", size);
 	kick_btn.rect.set_position(&Vector2f::new(10., 100.));
 
 	// Select "hh" instrument button
-	let mut hh_btn = button::Button::new("hh", size, true);
+	let mut hh_btn = button::Button::new("hh", size);
 	hh_btn.rect.set_position(&Vector2f::new(10., 190.));
 
 	// Select "clap" instrument button
-	let mut clap_btn = button::Button::new("clap", size, true);
+	let mut clap_btn = button::Button::new("clap", size);
 	clap_btn.rect.set_position(&Vector2f::new(10., 280.));
 
 	let mut instrument = Some("kick");
@@ -108,7 +108,11 @@ fn main() {
 	let beat = ((60./tempo) * 1000.) as i32;
 	let div = beat/4;
 
+	let mut redraw = true;
+
 	while window.is_open() {
+
+		let mut advance = false;
 
 		// Set up responses to UI events
 		for event in window.events() {
@@ -128,12 +132,15 @@ fn main() {
 					}
 					if on_button(&kick_btn.rect, x, y) {
 						instrument = Some("kick");
+						redraw = true;
 					}
 					if on_button(&hh_btn.rect, x, y) {
 						instrument = Some("hh");
+						redraw = true;
 					}
 					if on_button(&clap_btn.rect, x, y) {
 						instrument = Some("clap");
+						redraw = true;
 					}
 					break;
 				},
@@ -145,17 +152,16 @@ fn main() {
 			let mut remainder = 0;
 
 			// Wait until it's time to play a sound
-			loop {
-				let tick = clock.get_elapsed_time().as_milliseconds();
-				loop { if tick != clock.get_elapsed_time().as_milliseconds() {break;} }
-				remainder = tick % div;
-				if remainder == 0 {break;}
-			}
+			let tick = clock.get_elapsed_time().as_milliseconds();
+			loop { if tick != clock.get_elapsed_time().as_milliseconds() {break;} }
 
-			// We've waited long enough. Play some sounds.
-			if kick_hits[step] {kick.play();}
-			if hh_hits[step] {hh.play();}
-			if clap_hits[step] {clap.play();}
+			if tick % div == 0 {
+				redraw = true;
+				advance = true;
+				if kick_hits[step] {kick.play();}
+				if hh_hits[step] {hh.play();}
+				if clap_hits[step] {clap.play();}
+			}
 		}
 
 		// Initialize vars for grid-drawing loop
@@ -195,21 +201,23 @@ fn main() {
 		}
 
 		// Clear the window
-		window.clear(&Color::new_rgb(29, 115, 115));
+		if redraw {
+			window.clear(&Color::new_rgb(29, 115, 115));
 
-		// Draw the left buttons
-		window.draw(&one.rect);
-		window.draw(&kick_btn.rect);
-		window.draw(&hh_btn.rect);
-		window.draw(&clap_btn.rect);
+			// Draw the left buttons
+			window.draw(&one.rect);
+			window.draw(&kick_btn.rect);
+			window.draw(&hh_btn.rect);
+			window.draw(&clap_btn.rect);
 
-		// Draw the grid
-		for pad in pads { window.draw(&pad); }
+			// Draw the grid
+			for pad in pads { window.draw(&pad);}
 
-		window.display();
+			window.display();
 
-		// Increment the step counter for the next loop
-		if step < 15 {step += 1} else {step = 0};
+			redraw = false;
+		}
+		if advance { step = next_step(step) }
 	}
 }
 
@@ -229,7 +237,7 @@ fn calculate_left_offset(width: i32, col: i32, button_space: i32, pad_offset: i3
 	((width * col) + ((button_space * (col + 1)) + pad_offset)) as f32
 }
 
-fn calculate_top_offset(height: i32, row: i32, button_space: i32) -> f32{
+fn calculate_top_offset(height: i32, row: i32, button_space: i32) -> f32 {
 	((height * row) + (button_space * (row + 1))) as f32
 }
 
@@ -237,4 +245,8 @@ fn calculate_position(col: i32, row: i32, col_width: i32, row_height: i32, gutte
 	let left = calculate_left_offset(col_width, col, gutter, left_offset);
 	let top  = calculate_top_offset(row_height, row, gutter);
 	Vector2f::new(left, top)
+}
+
+fn next_step(step: usize) -> usize {
+	if step < 15 { return step + 1} else { return 0 };
 }
